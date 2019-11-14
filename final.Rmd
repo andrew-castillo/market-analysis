@@ -1,0 +1,344 @@
+---
+title: 'FINAL PROJECT'
+author: "Andrew Castillo"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+`r format(Sys.time())`
+
+```{r include = FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+```
+
+<font size="4">0A. INTRODUCTION</font>
+
+This paper will examine the impact of macroeconomic recession and growth in the US economy on the volatility of the stock market. Volatility of the market is the degree of variation of a trading price series over time as measured by the standard deviation of logarithmic returns. 
+
+Daily open is the volatility at the time the stock market opens (9:30 AM Eastern Standard Time). Daily close is similar, but at closing, which is at 4:00 PM EST. 
+
+Daily high and low are the highest and lowest volatility measures on a given day.
+
+Higher volatility means there is an increased risk of fiscal loss when trading. By understanding the impact of the current state of the economy on the stability of the market, investors can make educated choices and take calculated risks when choosing when and where to place their capital.
+
+There are three questions we hope to answer in this analysis:
+
+1. Does recession correlate with higher volatility in stock options? 
+
+2. Is the difference between daily opening and closing volatility impacted by recession? If so, what is the impact?
+
+3. Is there a systemic difference in daily high volatility during periods of growth and periods of recession?
+
+These questions have impact on real-time investment of stock options.  
+We expect recession to correlate with higher volatility, due to an increase in panic-selling. This is a situation where shareholders reach their tolerance for loss during an economic downturn, and sell their positions to minimize further damage to the value of their holdings.
+
+
+<font size="4">1A. DESCRIPTION OF DATA</font> 
+
+The VIX Index is the data set we will use. This data set is sourced from Cboe Global Markets, and measures the "fear" in the market with four metrics: daily high, low, open, and close. Volatility is a unitless measurement.
+
+Volatility is measured by taking the standard deviation of prices all option stocks over the previous three months. It is unitless. The higher the numerical value, the more volatile the market is (often referenced as market 'fear' or 'uncertainty').
+
+To answer the questions presented in the introduction 1), 2), and 3), we'll look at how the volatility of the market changes over time and on a daily basis and the contrast between each cycle of growth and recession. The objective is to find if there is a connection between recession and higher volatility, and similarly growth and lower volatility.
+
+For 1), we'll analyze one-variable statistics.
+
+For 2), we'll look at opening and closing volatility, and compare the difference of their means over each period. A paired sample T-test will be applied. Opening and closing are the measurements of overall market stability at the start of a trading day, and at the end of the same day. We'll take the means of each category over a sample size of n = 252 days for open and close, selected arbitrarily. 
+
+For 3), we'll use a bootstrap study with data from the time intervals Sep 1, 2008 to Sep 1, 2009 for recession and Sep 1, 2006 to Sep 1, 2007 for growth, by the National Bureau of Economic Research.
+
+To conclude, we'll summarize the data and examine what possible confounding variables could be.
+
+<font size="4">1B. NECESSARY METADATA</font> 
+
+For this analysis, we need to know when the U.S. economy is in periods of recession and growth. According to the National Bureau of Economic Research, the periods of recession are Mar 2001 - Nov 2001, Dec 2007 - June 2009. The growth period we'll be using is Nov 2001 - Dec 2007, by the same source. This data is categorical.
+
+
+
+<font size="4">2A. ONE-VARIABLE ANALYSIS</font> 
+
+Next, we'll start analyzing the data. The one-variable statistics we'll consider are mean, median, standard deviation, and variance.
+
+The purpose of this section is to present the data as-is, and answer question 1).
+
+The data set is previewed below:
+
+```{r}
+data_set_raw = read.table(file = 'vixcurrent.csv', sep = ',', header = TRUE)
+
+show(data_set_raw[1:10,])
+```
+
+Considering the entire data set, the mean of opening volatility is `r mean(data_set_raw$VIX.Open)`, the mean of closing is `r mean(data_set_raw$VIX.Close)`. The mean daily low is `r mean(data_set_raw$VIX.Low)` and the mean high is `r mean(data_set_raw$VIX.High)`. With respect to our chosen time intervals, during recession we have: 
+
+Mean opening of `r mean(x=data_set_raw[1155:1275,]$VIX.Open)`, mean closing of `r mean(x=data_set_raw[1155:1275,]$VIX.Close)`, and mean high and low values of `r mean(x=data_set_raw[1155:1275,]$VIX.High)`, `r mean(x=data_set_raw[1155:1275,]$VIX.Close)`, respectively.
+
+And during growth, we have a mean opening of `r mean(x=data_set_raw[0:1155,]$VIX.Open)`, mean closing of `r mean(x=data_set_raw[0:1155,]$VIX.Close)`, and mean high and low values of `r mean(x=data_set_raw[0:1155,]$VIX.High)`, `r mean(x=data_set_raw[0:1155,]$VIX.Close)`, respectively.
+
+The mean of all variables together is `r (mean(data_set_raw$VIX.Open) + mean(data_set_raw$VIX.Close) + mean(data_set_raw$VIX.Low) + mean(data_set_raw$VIX.High))/4`.
+
+Next, we'll plot daily high over the entire data set, to view the most intense peaks of fear in the market:
+
+```{r}
+plot(as.Date(data_set_raw$Date), data_set_raw$VIX.High, xlab = 'Time (years from 2001)', ylab = 'Volatility index', main = 'Daily High of Volatility in Stock Options')
+```
+
+The mean of the daily high over the course of the entire data set is `r mean(data_set_raw$VIX.High)` The standard deviation is `r sd(data_set_raw$VIX.High)`.
+
+Variance is computed with the formula
+
+$\sigma{_x}^{2} = \sum_{i=1}^{n} (x_i - \bar{x})^2\quad$
+
+Variance of the volatility during growth (2001 - Sep 2008) for daily high is `r var(x=data_set_raw[0:1155,]$VIX.High)`, and standard deviation (the square root of the variance) is `r sd(x=data_set_raw[0:1155,]$VIX.High)`
+
+In recession (2008 - 2009), we have the variance of the high at  `r var(x=data_set_raw[1155:1275,]$VIX.High)`, and standard deviation is `r sd(x=data_set_raw[1155:1275,]$VIX.High)`
+
+
+<font size="4">2B. TWO-VARIABLE ANALYSIS</font>
+
+Our two-variable analysis will include the correlation of daily high to daily low, and a regression line of open and close compared over the time period. The purpose of this section is to answer question 2).
+
+Market open and close during the 2008 financial crisis are plotted against each other here. Open is colored red, and close is colored blue:
+
+```{r}
+x=data_set_raw[1155:1275,]
+date = as.Date(as.character(20040804), "%Y%m%d")
+dates = seq(date, by = '1 day', length.out = 121)
+
+
+plot(dates, x$VIX.Open, col = 'blue', xlab = 'Time (2008)', ylab = 'Open and Closing Volatility', main = 'Opening and Closing Volatility During Recession')
+abline(lm(x$VIX.Open ~ dates), col = 'red')
+abline(lm(x$VIX.Close ~ dates), col = 'blue')
+
+points(dates, x$VIX.Close, col='red') 
+
+```
+
+Though slight, note the higher slope value on the red (opening) line. This indicates in general, volatility during recession is higher at open than at close (we'll check later if this is statistically significant).
+
+The jump during September 12 - October 8 is the time period when the housing bubble burst. Over this time period, the mean daily high was `r mean(data_set_raw[1183:1201,]$VIX.High)` and the mean daily low was `r mean(data_set_raw[1183:1201,]$VIX.Low)`, and overall volatility averaged at `r (mean(data_set_raw[1183:1201,]$VIX.Open) + mean(data_set_raw[1183:1201,]$VIX.Close) + mean(data_set_raw[1183:1201,]$VIX.Low) + mean(data_set_raw[1183:1201,]$VIX.High))/4`.
+
+The correlation coefficient is `r cor(x$VIX.Open, x$VIX.Close)`, meaning there is a very strong connection between open and close on any given day during recession, and the trend lines are pictured in the graph.
+
+Pictured below is a plot of the market in a period of growth:
+
+```{r}
+y=data_set_raw[0:1155,]
+date = as.Date(as.character(20010804), "%Y%m%d")
+dates = seq(date, by = '1 day', length.out = 1155)
+
+
+plot(dates, y$VIX.Open, col = 'blue', xlab = 'Time (years)', ylab = 'Open and Closing Volatility', main = 'Opening and Closing Volatility During Growth')
+abline(lm(y$VIX.Open ~ dates), col = 'red')
+abline(lm(y$VIX.Close ~ dates), col = 'blue')
+
+points(dates, y$VIX.Close, col='red')
+```
+
+Here, the trend lines both have a shallower slope, and are also more strongly correlated. The correlation coefficient here is `r cor(y$VIX.Open, y$VIX.Close)`
+
+The scaling is different (only going up to 35 on the y-axis, where the recession graph scales to 80).
+
+<font size="4">2C. CONFIDENCE INTERVAL</font> 
+
+There will be two confidence intervals we consider- daily open and daily close. Furthermore, we'll plot these for the recession and non-recession periods, and then overall.
+
+An overall confidence interval on daily closing prices is calculated with the equation:
+
+$\sigma_{\bar{x}} = \frac{\sigma}{sqrt{n}}$
+
+$\bar{x} \pm 1.96\frac{\sigma}{sqrt{n}}$
+
+And its z-score, which is calculated by:
+
+$\frac{x - \mu}{\sigma}$
+
+```{r}
+re = data_set_raw[1175:1426,]
+gr = data_set_raw[673:924,]
+meanrecl = mean(data_set_raw[1175:1426,]$VIX.Close)
+meanreop = mean(data_set_raw[1175:1426,]$VIX.Open)
+meangrcl = mean(data_set_raw[673:924,]$VIX.Close)
+meangrop = mean(data_set_raw[673:924,]$VIX.Close)
+conf1 = meanrecl - 0.2021032
+conf2 = meanrecl + 0.2021032
+
+t.test(gr$VIX.Open)
+t.test(gr$VIX.Close)
+```
+
+Based on the results of our calculations, a 95% confidence interval of volatility at open during recession is (13.47395, 14.55383), and during growth is (13.54258, 14.59901). This means, during a recession, we can say with 95% certainty the value of volatility will be between (39.25194, 42.63537) at close, and (39.44434, 42.84717) at open.
+
+The recession interval roughly three times wider than the growth interval, and also the values are roughly tripled, with measurements at 13.54258 during growth and 39.25194 during recession on the lower ends of each respective confidence interval.
+
+
+<font size="4">3A. HYPOTHESIS TEST</font>
+
+Another approach is to use a t-test to examine if the mean difference between opening and closing volatility is statistically significant. Here, we'll apply a paired-sample t-test on open and close data points selected over the course of a year-long interval (n = 251) from Sep 1, 2008 to Sep 1, 2009 for recession and Sep 1, 2006 to Sep 1, 2007 for growth.
+
+The purpose of this section is to answer question 3).
+
+Our null hypothesis is that the mean difference between opening and closing is 0.
+
+Applying our test to the recession time interval, we see:
+
+```{r}
+re = data_set_raw[1175:1426,]
+t.test(re$VIX.Open, re$VIX.Close, paired = TRUE)
+```
+
+The resulting t-value is 0.97727, and the p-value is 0.97727. Because the p value is greater than 0.05, we accept the null hypothesis, concluding there is a not statistically significant difference between high and low volatility during recession.
+
+Mirroring this test in times of growth, we find:
+
+```{r}
+gr = data_set_raw[673:924,]
+t.test(gr$VIX.Open, gr$VIX.Close, paired = TRUE)
+```
+
+The resulting t-value is  0.8234, and the p-value is 0.4111. Because the p value is still greater than 0.05, we reject the null hypothesis, concluding there is not a statistically significant difference during times of growth either.
+
+
+<font size="4">3B. SECOND HYPOTHESIS TEST</font>
+
+The second hypothesis test is if daily high and daily low are independent during recession. For this, we'll apply a chi-squared test with the formula:
+
+```{r}
+chirec = data.frame(matrix(ncol = 2, nrow = 51))
+chirec$X1 = re[20:70,]$VIX.High
+chirec$X2 = re[20:70,]$VIX.Low
+chirec$X3 = gr[20:70,]$VIX.High
+chirec$X4 = gr[20:70,]$VIX.Low
+
+```
+
+$\tilde{\chi}^2=\frac{1}{d}\sum_{k=1}^{n} \frac{(O_k - E_k)^2}{E_k}$
+
+```{r}
+chisq.test(chirec$X1, chirec$X2, simulate.p.value = TRUE)
+```
+
+With null and alternative hypotheses $H_{0}, H_{a}$.
+
+$H_{0}:$ There is no association between the opening and closing volatility during recession.
+
+$H_{a}:$ There is an association between association between the opening and closing volatility.
+
+The resulting Chi-square value is 2550, and the p-value is 0.0004998. Because the p value is less than than 0.05, we reject the null hypothesis, we conclude daily high and daily low are not independent in times of recession.
+
+```{r}
+chisq.test(chirec$X3, chirec$X4, simulate.p.value = TRUE)
+```
+
+Similarly, during growth, the Chi-square value is 2244, and the p-value is 0.4488. Because the p value is greater than 0.05, we fail reject the null hypothesis, and conclude the daily high and low are independent in times of growth.
+
+
+<font size="4">4A. BOOTSTRAP STUDY</font>
+
+Our last analytical piece will be a bootstrap study of the daily high during periods of recession and growth. We'll use our previously selected time intervals of (n = 251) from Sep 1, 2008 to Sep 1, 2009 for recession and Sep 1, 2006 to Sep 1, 2007 for growth.
+
+The procedure is as follows:
+
+**1. Create a subset of daily high measurements with recession and growth labeled. Show a histogram of each.**
+
+**2. Compute the t statistic between the two groups, which quantifies how large the difference in means is compared to what you'd expect by chance**
+
+**3. Shuffle up the recession and growth labels, and recompute the t statistic 10^4 times. The p-value is the proportion of these that are more extreme than our observed value.**
+
+(1) First, histograms of the variables are overlaid:
+
+```{r}
+hist(gr$VIX.High, xlim = c(0, 100), main = 'Daily High Volatility During Growth and Recession', xlab = 'Level of Volatility', breaks = 10, col = 'skyblue3')
+hist(re$VIX.High, xlim = c(0, 100), breaks = 30, col = 'red', add=T)
+```
+
+As pictured, the lower end of the volatility scale in the range of (10, 25) is saturated with blue entries, corresponding to growth. The upper end of (25,85) is a more of an even spread of the recession values.
+
+(2) Then, the two-sample t statistic is computed below using t.test:
+
+```{r}
+t.test(re$VIX.High, gr$VIX.High, paired = FALSE)
+```
+Based on our calculations, the t-value is 28.71.
+
+(3) Now, we repeat the code above, but with the the high and low labels shuffeled randomly using sample().
+
+```{r}
+vec = c(re[,3], gr[,3])
+shuffled = sample(vec)
+base = data.frame(matrix(ncol = 2, nrow = 252))
+  base[,1] = shuffled[1:252]
+  base[,2] = shuffled[253:504]
+tt = t.test(base$X1, base$X2, paired = FALSE)
+w = tt$statistic
+w
+```
+
+
+Our rearrangement yields a t-value of `r w` pictured above, which is much smaller than the first result of 28.71. If there is no systematic difference between the groups, then rearranging the labels shouldn't affect anything. 
+
+(4) Repeat the test 10^4 times, illustrating the result in a histogram:
+
+```{r}
+get_shuffled_t <- function () {
+  vec = c(re[,3], gr[,3])
+  shuffled = sample(vec)
+  base = data.frame(matrix(ncol = 2, nrow = 252))
+    base[,1] = shuffled[1:252]
+    base[,2] = shuffled[253:504]
+  tt = t.test(base$X1, base$X2, paired = FALSE)
+  tt$statistic
+  }
+t_shuffled <- replicate(10000, get_shuffled_t())
+```
+
+
+Then, we find the p-value: the proportion of shuffled t-statistics that are larger in absolute value than the one observed in step (2).
+
+
+```{r}
+hist(t_shuffled, breaks=20, 
+     xlab="t statistic", main="Bootstrap Distribution",
+     xlim=range(-10, 37.141))
+abline(v=27.81, col='red')
+
+```
+
+```{r}
+p_val <- sum(abs(t_shuffled) > 28.71) / length(t_shuffled)
+pv = 28.71 + mean(t_shuffled)
+```
+
+The p-value is approximately zero, which can be seen from the histogram.
+
+In conclusion, we have strong evidence that the average high volatility of periods of recession is greater than the respective high of growth periods. The mean difference is `r pv` based on our bootstrap test, and this difference is significant ($p \approx 0$, 10^4 samplings).
+
+<font size="4">5A. CONCLUSION</font>
+
+Based on our analysis, the answers to our presented questions are:
+
+
+1. Recession correlated with a high volatility in stock options, by our one-variable analysis and bootstrap study.
+
+2. The mean difference between daily opening and closing volatility is not impacted by recession. Furthermore, daily high and low are independent in times of growth, but not in times of recession, by our two-variable analysis and hypothesis test.
+
+3. There is a systemic difference between average daily high during recession and during growth.
+
+Overall, the relationship between volatility of stock options and economic growth is a positive relationship. As the economy grows, the market is generally more stable.
+
+Possible confounding variables include:
+
+Change in one specific area of stocks (i.e. dramatic change in oil stocks while the rest of the market is not volatile), if the change in one sector is cancelled by another, current events, and political climate.
+
+
+Works Consulted:
+
+https://www.federalreserve.gov/econres.htm
+
+http://www.cboe.com/products/vix-index-volatility
+
+https://www.nber.org/
+
+
